@@ -1,3 +1,5 @@
+package mco364;
+
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
@@ -8,17 +10,21 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
+import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 
 class PongPanel extends JPanel {
 
     private Point ballPoint = new Point(100, 100);
-    
+
     final int ballDiameter = 20;
 
     int dx = 1, dy = 1;
@@ -39,11 +45,6 @@ class PongPanel extends JPanel {
     private int paddleY = padding;
     private boolean gameover = false;
 
-    /*  HW
-·       After game, display top 10 scores descending with initials of the players
-·       If user score, is in the top 10 prompt for initials and then store his score and initials in the database.
-     */
-
     PongPanel() {
 
         System.out.println(left + "," + right + "," + top + "," + bottom);
@@ -63,7 +64,7 @@ class PongPanel extends JPanel {
         ballUpdater = new Timer(50, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent ae) {
-                drawBall();               
+                drawBall();
             }
         }
         );
@@ -81,18 +82,19 @@ class PongPanel extends JPanel {
         );
 
     }
-    public boolean getGameover(){
-    return gameover;
+
+    public boolean getGameover() {
+        return gameover;
     }
-    
-    public Timer getTimer(){
-    return ballUpdater;
+
+    public Timer getTimer() {
+        return ballUpdater;
     }
-    
-    public int getScore(){
-    return score;
+
+    public int getScore() {
+        return score;
     }
-    
+
     public boolean hitPaddle() {
         return ballPoint.x - (padding / 2) == paddleX
                 && checkYValue();
@@ -146,18 +148,18 @@ class PongPanel extends JPanel {
         updateBallPosition();
 
         g.setColor(Color.WHITE);
-        
+
         g.drawRect(top, left, right - padding, bottom - padding);
-        
+
         g.drawString("Your Current Score is: " + String.valueOf(score), 20, 15);
-        
+
         g.fillOval(ballPoint.x, ballPoint.y,
                 ballDiameter, ballDiameter);
 
         g.fillRect(paddleX, paddleY,
-                paddleDimension.width, paddleDimension.height);    
+                paddleDimension.width, paddleDimension.height);
     }
-    
+
     private boolean checkYValue() {
         int paddleDepth = (int) (paddleY + paddleDimension.getHeight());
         return ballPoint.y >= paddleY && ballPoint.y < paddleDepth;
@@ -165,7 +167,8 @@ class PongPanel extends JPanel {
 }
 
 class PongApp extends JFrame {
-        PongPanel pp = new PongPanel();
+
+    PongPanel pp = new PongPanel();
 
     PongApp() {
         add(pp);
@@ -175,40 +178,35 @@ class PongApp extends JFrame {
     }
 }
 
-public class Main {    
-    public static void main(String[] args) {
-        ExecutorService executor = Executors.newFixedThreadPool(1);  // try with multiple pools        
-        GuiThread gt = new GuiThread();
-        Runnable workerThread = gt;
-        Future future = executor.submit(workerThread);
-        processmessage();
-            while(!gt.pa.pp.getGameover()){
-                System.out.println("game running");
-            }
-            gt.pa.setTitle("Game Over");
-            future.cancel(true);
-            Database dbc = new Database();  
-            dbc.getScores();
-            dbc.checkForWinningScore(gt.pa.pp.getScore());
-            System.exit(0);
-    }
-        private static void processmessage() {
-        try {  
-        Thread.sleep((int) (1000)); 
-            for (int i = 0; i < 1000; i++) {
-                System.out.println("thread processing "+i);
-            }
-        }
-        catch (InterruptedException e) { 
-            e.printStackTrace(); }
-    }
-}
+public class Main {
 
-class GuiThread implements Runnable{
-PongApp pa;
-    
-    @Override
-    public void run() {
-    pa = new PongApp();
-    }        
+    public static void main(String[] args) {
+        ArrayList<String> names = new ArrayList<>();
+        ArrayList<Integer> scores = new ArrayList<>();
+        StringBuilder sb = new StringBuilder();
+        PongApp pa = new PongApp();
+        while(!pa.pp.getGameover()){
+            System.out.println("EDT is running");
+        }
+        pa.setVisible(false);
+        int scoreToCheck = pa.pp.getScore();
+        Database dbc = new Database();
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException ex) {
+            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        if (dbc.checkForWinningScore(scoreToCheck)) {
+            String initials = JOptionPane.showInputDialog("Congratulations! you have a high score! please enter your initials");
+            dbc.updateScores(scoreToCheck, initials);
+            dbc.refreshScores();
+        }
+        names = dbc.getInitials();
+        scores = dbc.getScores();
+        for (int i = 0; i < names.size(); i++) {
+            sb.append(names.get(i)).append(":").append(scores.get(i)).append("\n");
+        }
+        JOptionPane.showMessageDialog(null, sb.toString());
+        System.exit(0);
+    }
 }
